@@ -1,6 +1,3 @@
-import random
-
-
 class Node:
     def __init__(self, var_num, value, level):
         self.prev_list = []
@@ -30,88 +27,126 @@ class Graph:
 
     def __str__(self):
         result = ""
-        for node in self.node_list:
-            result += "x" + str(node.var_num) + "=" + str(node.value) + ":" + str(node.level) + "\n" + str(node.prev_list) + "\n" + str(node.next_list) + "\n\n"
+        for index, node in enumerate(self.node_list):
+            result += "x" + str(node.var_num) + "=" + str(node.value) + ":" + str(node.level) + "(" + str(index) + ")" + "\n" + str(node.prev_list) + "\n" + str(node.next_list) + "\n\n"
         return result
 
 
-class VarValuesList:
+class VarValues:
     def __init__(self, var_num):
-        self.var_values_list = []
+        self.list = []
         for _ in range(var_num):
-            self.var_values_list.append(None)
+            self.list.append(None)
 
     def change_var_value(self, var_num, value):
-        self.var_values_list[var_num-1] = value
+        self.list[var_num-1] = value
 
     def are_all_assigned(self):
-        return None not in self.var_values_list
+        return None not in self.list
 
     def __str__(self):
-        return str(self.var_values_list)
+        return str(self.list)
+                
 
-
-def pick_branching_variable(cnf, var_values_list):
-    for index, var_value in enumerate(var_values_list.var_values_list):
+def pick_branching_variable(var_values):
+    for index, var_value in enumerate(var_values.list):
         if var_value == None:
-            return index + 1, random.randrange(0,2)
+            return index + 1, 1
+            
 
-
-def use_sing_disj_rule_and_check_impossible_clause(clause, var_values_list):
+def use_sing_disj_rule_and_check_impossible_clause(clause, var_values):
     unassigned_cntr = 0
     for literal in clause.literal_set:
-        if var_values_list.var_values_list[abs(literal)-1] == None:
+        if var_values.list[abs(literal)-1] == None:
             unassigned_cntr += 1
             unassigned_literal = literal
-        elif (var_values_list.var_values_list[abs(literal)-1] == True and literal > 0) or (var_values_list.var_values_list[abs(literal)-1] == False and literal < 0):
-            return False, None
+            gener_literals = [literal for literal in clause.literal_set if literal != unassigned_literal]
+        elif (var_values.list[abs(literal)-1] == True and literal > 0) or (var_values.list[abs(literal)-1] == False and literal < 0):
+            return False, None, None
     if unassigned_cntr == 0:
-        return True, None
+        return True, None, None
     if unassigned_cntr == 1:
-        #var_values_list.change_var_value(unassigned_var, True)
-        return False, unassigned_literal
-    return False, None
+        return False, unassigned_literal, gener_literals
+    return False, None, None
 
 
-def unit_propagation_conflict(cnf, var_values_list, last_node_num, graph, level):
+def unit_propagation_conflict(cnf, var_values, graph, level):
     for clause in cnf.clause_list:
-        is_impossible, literal = use_sing_disj_rule_and_check_impossible_clause(clause, var_values_list)
+        is_impossible, unassigned_literal, gener_literals = use_sing_disj_rule_and_check_impossible_clause(clause, var_values)
         if is_impossible:
             return True
-        elif literal != None:
-            value = True if literal > 0 else False
-            var_values_list.change_var_value(abs(literal), value)
-            node_num = graph.add_node(Node(abs(literal), value, level))
-            graph.node_list[last_node_num].add_next_link(node_num)
-            graph.node_list[node_num].add_prev_link(last_node_num)
-            #if unit_propagation_conflict(cnf, var_values_list, node_num, graph, level):
-                #return True
-            #else:
-                #return False
+        elif unassigned_literal != None:
+            value = True if unassigned_literal > 0 else False
+            var_values.change_var_value(abs(unassigned_literal), value)
+            node_num = graph.add_node(Node(abs(unassigned_literal), value, level))
+            for literal in gener_literals:
+                prev_node_num = graph.get_node_num(abs(literal))
+                graph.node_list[prev_node_num].add_next_link(node_num)
+                graph.node_list[node_num].add_prev_link(prev_node_num)
+            return unit_propagation_conflict(cnf, var_values, graph, level)
     return False
 
 
-def conflict_analysis(cnf, var_values_list, level):
-    return level
+def conflict_analysis(cnf, graph, level):
+    if level == 0: return -1
+    level_set = set()
+    node_set = set()
+    for node in graph.node_list[::-1]:
+        if node.level == level and node.prev_list != []:
+            for index in node.prev_list:
+                if graph.node_list[index].level < level or (graph.node_list[index].level == level and graph.node_list[index].prev_list == []):
+                    node_set.add(graph.node_list[index])
+                    level_set.add(graph.node_list[index].level)
+        if node.level == level and node.prev_list == []:
+            node_set.add(node)
+            level_set.add(node.level)
+        if node.level < level:
+            break
+    literal_list = []
+    for node in node_set:
+        literal_list.append(-node.var_num if node.value else node.var_num)
+    cnf.add_clause(literal_list)
+    return min(level_set)
 
-def backtrack(cnf, var_values_list, b):
-    pass
+def backtrack(var_values, graph, b):
+    end = None
+    for index in range(len(graph.node_list)):
+        if graph.node_list[index].level < b:
+            graph.node_list[index].next_list = [var_num for var_num in graph.node_list[index].next_list if graph.node_list[index].level < b]
+            graph.node_list[index].prev_list = [var_num for var_num in graph.node_list[index].prev_list if graph.node_list[index].level < b]
+        else:
+            if end == None:
+                end = index
+            var_values.list[graph.node_list[index].var_num - 1] = None
+    if end == 0:
+        graph.node_list = []
+    else:
+        graph.node_list = graph.node_list[:end]
 
-def cdcl(cnf, var_values_list, impl_graph):
+def cdcl_based_solver(cnf, var_values, impl_graph):
     level = 0
-    while not var_values_list.are_all_assigned():
-        print(var_values_list)
-        var_num, var_val = pick_branching_variable(cnf, var_values_list)
+    was_conflict = False
+    if unit_propagation_conflict(cnf, var_values, impl_graph, level):
+            return False
+    while not var_values.are_all_assigned():
+        if was_conflict:
+            if unit_propagation_conflict(cnf, var_values, impl_graph, level):
+                return False
+        var_num, var_val = pick_branching_variable(var_values)
         level += 1
-        var_values_list.change_var_value(var_num, bool(var_val))
-        node_num = impl_graph.add_node(Node(var_num, bool(var_val), level))
-        if unit_propagation_conflict(cnf, var_values_list, node_num, impl_graph, level):
-            b = conflict_analysis(cnf, var_values_list, level)
+        var_values.change_var_value(var_num, bool(var_val))
+        impl_graph.add_node(Node(var_num, bool(var_val), level))
+        #print("===============================================")
+        #print(cnf)
+        #print(var_values_list)
+        #print(impl_graph)
+        if was_conflict := unit_propagation_conflict(cnf, var_values, impl_graph, level):
+            #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            #print(impl_graph)
+            b = conflict_analysis(var_values, impl_graph, level)
             if b < 0:
                 return False
             else:
-                backtrack(cnf, var_values_list, b)
-                level = b
-    #print(var_values_list)
-    #print(impl_graph)
+                backtrack(cnf, var_values, impl_graph, b)
+                level = b - 1
     return True

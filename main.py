@@ -1,16 +1,19 @@
 import dimacs_parser
 import cnf_realisation
 import cdcl
+import sys
 
-l, v_n, l_n = dimacs_parser.parse()
-c = cnf_realisation.Cnf(l, v_n, l_n)
-var_values_list = cdcl.VarValuesList(v_n)
-graph = cdcl.Graph()
-print(c)
-#print(c.get_var_num())
-#print(c.get_literal_num())
-if cdcl.cdcl(c, var_values_list, graph):
+if len (sys.argv) < 2:
+    print("Wrong input")
+    exit(1)
+
+cl_list, vars_num, clauses_num = dimacs_parser.parse(sys.argv[1])
+c = cnf_realisation.Cnf(cl_list, vars_num, clauses_num)
+vars_values = cdcl.VarValues(vars_num)
+impl_graph = cdcl.Graph()
+
+if cdcl.cdcl_based_solver(c, vars_values, impl_graph):
     print("SAT")
-    print([int(value) for value in var_values_list.var_values_list])
+    print([int(value) for value in vars_values.list])
 else:
     print("UNSAT")
