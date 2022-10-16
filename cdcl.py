@@ -1,3 +1,5 @@
+import cnf_realisation
+
 class Node:
     def __init__(self, var_num, value, level):
         self.prev_list = []
@@ -48,13 +50,13 @@ class VarValues:
         return str(self.list)
                 
 
-def pick_branching_variable(var_values):
+def pick_branching_variable(var_values:VarValues):
     for index, var_value in enumerate(var_values.list):
         if var_value == None:
             return index + 1, 1
             
 
-def use_sing_disj_rule_and_check_impossible_clause(clause, var_values):
+def use_sing_disj_rule_and_check_impossible_clause(clause:cnf_realisation.Clause, var_values:VarValues):
     unassigned_cntr = 0
     for literal in clause.literal_set:
         if var_values.list[abs(literal)-1] == None:
@@ -70,7 +72,7 @@ def use_sing_disj_rule_and_check_impossible_clause(clause, var_values):
     return False, None, None
 
 
-def unit_propagation_conflict(cnf, var_values, graph, level):
+def unit_propagation_conflict(cnf:cnf_realisation.Cnf, var_values:VarValues, graph:Graph, level:int):
     for clause in cnf.clause_list:
         is_impossible, unassigned_literal, gener_literals = use_sing_disj_rule_and_check_impossible_clause(clause, var_values)
         if is_impossible:
@@ -87,7 +89,7 @@ def unit_propagation_conflict(cnf, var_values, graph, level):
     return False
 
 
-def conflict_analysis(cnf, graph, level):
+def conflict_analysis(cnf:cnf_realisation.Cnf, graph:Graph, level:int):
     if level == 0: return -1
     level_set = set()
     node_set = set()
@@ -108,7 +110,7 @@ def conflict_analysis(cnf, graph, level):
     cnf.add_clause(literal_list)
     return min(level_set)
 
-def backtrack(var_values, graph, b):
+def backtrack(var_values:VarValues, graph:Graph, b:int):
     end = None
     for index in range(len(graph.node_list)):
         if graph.node_list[index].level < b:
@@ -123,7 +125,7 @@ def backtrack(var_values, graph, b):
     else:
         graph.node_list = graph.node_list[:end]
 
-def cdcl_based_solver(cnf, var_values, impl_graph):
+def cdcl_based_solver(cnf:cnf_realisation.Cnf, var_values:VarValues, impl_graph:Graph):
     level = 0
     was_conflict = False
     if unit_propagation_conflict(cnf, var_values, impl_graph, level):
