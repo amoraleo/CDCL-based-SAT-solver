@@ -1,4 +1,5 @@
 import cnf_realisation
+import random
 
 class Node:
     def __init__(self, var_num, value, level):
@@ -53,7 +54,7 @@ class VarValues:
 def pick_branching_variable(var_values:VarValues):
     for index, var_value in enumerate(var_values.list):
         if var_value == None:
-            return index + 1, 1
+            return index + 1, random.randrange(0,2)
             
 
 def use_sing_disj_rule_and_check_impossible_clause(clause:cnf_realisation.Clause, var_values:VarValues):
@@ -140,15 +141,15 @@ def cdcl_based_solver(cnf:cnf_realisation.Cnf, var_values:VarValues, impl_graph:
         impl_graph.add_node(Node(var_num, bool(var_val), level))
         #print("===============================================")
         #print(cnf)
-        #print(var_values_list)
+        #print(var_values)
         #print(impl_graph)
         if was_conflict := unit_propagation_conflict(cnf, var_values, impl_graph, level):
             #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             #print(impl_graph)
-            b = conflict_analysis(var_values, impl_graph, level)
+            b = conflict_analysis(cnf, impl_graph, level)
             if b < 0:
                 return False
             else:
-                backtrack(cnf, var_values, impl_graph, b)
+                backtrack(var_values, impl_graph, b)
                 level = b - 1
     return True
